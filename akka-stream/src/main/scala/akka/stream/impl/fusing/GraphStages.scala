@@ -27,7 +27,9 @@ private[akka] final case class GraphStageModule(shape: Shape,
                                                 stage: GraphStageWithMaterializedValue[Shape, Any]) extends Module {
   def carbonCopy: Module = CopiedModule(shape.deepCopy(), Attributes.none, this)
 
-  def replaceShape(s: Shape): Module = CompositeModule(this, s)
+  def replaceShape(s: Shape): Module =
+    if (s != shape) CompositeModule(this, s)
+    else this
 
   def subModules: Set[Module] = Set.empty
 

@@ -319,22 +319,20 @@ object StreamLayout {
   object EmptyModule extends Module {
     override def shape = ClosedShape
     override def replaceShape(s: Shape) =
-      if (s == ClosedShape) this
-      else throw new UnsupportedOperationException("cannot replace the shape of the EmptyModule")
+      if (s != shape) throw new UnsupportedOperationException("cannot replace the shape of the EmptyModule")
+      else this
 
     override def compose(that: Module): Module = that
 
     override def compose[A, B, C](that: Module, f: (A, B) ⇒ C): Module =
       throw new UnsupportedOperationException("It is invalid to combine materialized value with EmptyModule")
 
-    override def subModules: Set[Module] = Set.empty
-
     override def withAttributes(attributes: Attributes): Module =
       throw new UnsupportedOperationException("EmptyModule cannot carry attributes")
+
+    override def subModules: Set[Module] = Set.empty
     override def attributes = Attributes.none
-
     override def carbonCopy: Module = this
-
     override def isRunnable: Boolean = false
     override def isAtomic: Boolean = false
     override def materializedValueComputation: MaterializedValueNode = Ignore
@@ -345,14 +343,17 @@ object StreamLayout {
                                 copyOf: Module) extends Module {
     override val subModules: Set[Module] = Set(copyOf)
 
-    override def withAttributes(attr: Attributes): Module = this.copy(attributes = attr)
+    override def withAttributes(attr: Attributes): Module =
+      if (attr ne attributes) this.copy(attributes = attr)
+      else this
 
     override def carbonCopy: Module = this.copy(shape = shape.deepCopy())
 
-    override def replaceShape(s: Shape): Module = {
-      shape.requireSamePortsAs(s)
-      CompositeModule(this, s)
-    }
+    override def replaceShape(s: Shape): Module =
+      if (s != shape) {
+        shape.requireSamePortsAs(s)
+        CompositeModule(this, s)
+      } else this
 
     override val materializedValueComputation: MaterializedValueNode = Atomic(copyOf)
 
@@ -362,17 +363,18 @@ object StreamLayout {
   }
 
   final case class CompositeModule(
-      override val subModules: Set[Module],
-      override val shape: Shape,
-      override val downstreams: Map[OutPort, InPort],
-      override val upstreams: Map[InPort, OutPort],
-      override val materializedValueComputation: MaterializedValueNode,
-      override val attributes: Attributes) extends Module {
+    override val subModules: Set[Module],
+    override val shape: Shape,
+    override val downstreams: Map[OutPort, InPort],
+    override val upstreams: Map[InPort, OutPort],
+    override val materializedValueComputation: MaterializedValueNode,
+    override val attributes: Attributes) extends Module {
 
-    override def replaceShape(s: Shape): Module = {
+    override def replaceShape(s: Shape): Module =
+    if (s != shape) {
       shape.requireSamePortsAs(s)
       copy(shape = s)
-    }
+    } else this
 
     override def carbonCopy: Module = CopiedModule(shape.deepCopy(), attributes, copyOf = this)
 
@@ -392,20 +394,21 @@ object StreamLayout {
   }
 
   final case class FusedModule(
-      override val subModules: Set[Module],
-      override val shape: Shape,
-      override val downstreams: Map[OutPort, InPort],
-      override val upstreams: Map[InPort, OutPort],
-      override val materializedValueComputation: MaterializedValueNode,
-      override val attributes: Attributes,
-      info: Fusing.StructuralInfo) extends Module {
+    override val subModules: Set[Module],
+    override val shape: Shape,
+    override val downstreams: Map[OutPort, InPort],
+    override val upstreams: Map[InPort, OutPort],
+    override val materializedValueComputation: MaterializedValueNode,
+    override val attributes: Attributes,
+    info: Fusing.StructuralInfo) extends Module {
 
     override def isFused: Boolean = true
 
-    override def replaceShape(s: Shape): Module = {
+    override def replaceShape(s: Shape): Module =
+    if (s != shape) {
       shape.requireSamePortsAs(s)
       copy(shape = s)
-    }
+    } else this
 
     override def carbonCopy: Module = CopiedModule(shape.deepCopy(), attributes, copyOf = this)
 
